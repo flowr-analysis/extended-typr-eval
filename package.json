@@ -13,11 +13,14 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^25.2.3",
+    "esbuild": "^0.27.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
-    "esbuild": "^0.27.2"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@eagleoutice/flowr": "^2.10.2"
+    "@eagleoutice/flowr": "file:vendor/eagleoutice-flowr-2.4.8.tgz",
+    "commonmark": "^0.31.2",
+    "gray-matter": "^4.0.3",
+    "smol-toml": "^1.8.0"
   }
 }
