@@ -18,12 +18,17 @@ cd flowr
 # (possibly among other files missing from the feature branch).
 # this means we package a mix of `main` and the (outdated)
 # feature branch. this somehow works but it's just so wrong :(
-npm i
-npm run build:dev
+# TODO: uncomment this (we skip `npm pack` because we use `npm run main` until the branch is rebased and thus packable)
+# npm i
+# npm run build:dev
 
 # TODO: switch to my actual branch, don't copy script
-COPY1="$(cat ./scripts/stage-library.ts)"
+# COPY1="$(cat ./scripts/stage-library.ts)"
 git switch 174-add-type-inference
+# TODO: remove this (we skip `npm pack` because we use `npm run main` until the branch is rebased and thus packable)
+echo "setup complete => npm run main [...]"
+exit 0
+
 echo "$COPY1" > ./scripts/stage-library.ts
 
 # build and package flowr

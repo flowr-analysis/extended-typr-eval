@@ -1,7 +1,5 @@
-import { VertexType } from "@eagleoutice/flowr/dataflow/graph/vertex";
-import { Query } from "@eagleoutice/flowr/queries/query";
-import { Q } from "@eagleoutice/flowr/search/flowr-search-builder";
+// import { Query } from "@eagleoutice/flowr/queries/query";
 
-export const query: Query[] = [
+export const query /* : Query[] */ = [
    { type: 'datatype' }
 ];
