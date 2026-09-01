@@ -12,23 +12,20 @@ set -e
 mkdir -p vendor
 
 cd flowr
+git pull
 
 # build flowr - TODO: REMOVE once branch is up-to-date
 # this uses branch `main`, which provides `dist/src/index.js`
 # (possibly among other files missing from the feature branch).
 # this means we package a mix of `main` and the (outdated)
 # feature branch. this somehow works but it's just so wrong :(
-# TODO: uncomment this (we skip `npm pack` because we use `npm run main` until the branch is rebased and thus packable)
-# npm i
-# npm run build:dev
+git switch main
+npm i
+npm run build:dev
 
 # TODO: switch to my actual branch, don't copy script
-# COPY1="$(cat ./scripts/stage-library.ts)"
+COPY1="$(cat ./scripts/stage-library.ts)"
 git switch 174-add-type-inference
-# TODO: remove this (we skip `npm pack` because we use `npm run main` until the branch is rebased and thus packable)
-echo "setup complete => npm run main [...]"
-exit 0
-
 echo "$COPY1" > ./scripts/stage-library.ts
 
 # build and package flowr

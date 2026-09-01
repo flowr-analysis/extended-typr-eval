@@ -17,5 +17,9 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@eagleoutice/flowr": "file:vendor/eagleoutice-flowr-2.4.8.tgz",
+    "@types/better-sqlite3": "^9.6.0",
+    "better-sqlite3": "^13.0.3"
+  }
 }
