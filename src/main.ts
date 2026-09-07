@@ -3,8 +3,9 @@ import path from 'path';
 
 import { AbstractFlowr } from './abstract_flowr';
 import { DataType } from '@eagleoutice/flowr/typing/types';
-import { SingleSlicingCriterion } from '@eagleoutice/flowr/slicing/criterion/parse';
 import { EvalData } from './database';
+import { SlicingCriterion } from '@eagleoutice/flowr';
+import { DatatypeQuery } from '@eagleoutice/flowr/queries/catalog/datatype-query/datatype-query-format';
 
 if(process.argv.length < 4) {
 	console.error(`
@@ -34,12 +35,12 @@ const database = new EvalData(
 
 async function main(folder: string) {
 	const directory = path.resolve(folder);
-	let flowr = new AbstractFlowr(directory);
+	const flowr = await AbstractFlowr.new(directory);
 	try {
 		for (const file of await fs.readdir(directory)) {
 			console.log("=>", file);
-			let query: { type: string, criteria: string[] } = { type: 'datatype', criteria: [] };
-			let typenames: Map<SingleSlicingCriterion, string> = new Map();
+			const query: DatatypeQuery = { type: 'datatype', criteria: [] };
+			const typenames: Map<SlicingCriterion, string> = new Map();
 			const contents = await fs.readFile(path.join(directory, file), { encoding: 'utf-8' });
 			const lines = contents.split('\n');
 			for (let line = 0; line < lines.length; line++) {
@@ -47,12 +48,12 @@ async function main(folder: string) {
 				if (parts.length == 2 && parts[1].startsWith('#type=') && parts[1].endsWith('#')) {
 					const varname = parts[0];
 					const typename = parts[1].substring(6, parts[1].length - 1);
-					const criterion = `${line+1}@${varname}` as SingleSlicingCriterion;
-					query.criteria.push(criterion);
+					const criterion = `${line+1}@${varname}` as SlicingCriterion;
+					query.criteria?.push(criterion);
 					typenames.set(criterion, typename);
 				}
 			}
-			let [results, resultString] = await flowr.query(file, [query]);
+			const [results, _resultString] = await flowr.query(file, [query]);
 			const db = database.withFile(file,  { ms: results['.meta'].timing });
 			const inferredTypes: Map<string, DataType> = new Map();
 			if (results.datatype?.inferredTypes) {
@@ -63,7 +64,6 @@ async function main(folder: string) {
 				}
 			}
 			console.log(inferredTypes);
-			console.log(resultString);
 		}
 	} finally {
 		database.close();

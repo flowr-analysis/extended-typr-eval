@@ -1,4 +1,5 @@
 import { DataType } from '@eagleoutice/flowr/typing/types';
+import { jsonReplacer } from '@eagleoutice/flowr/util/json';
 import Database from 'better-sqlite3'
 
 /**
@@ -51,6 +52,6 @@ export class EvalDataForFile {
 	insertType(name: string, datatype: DataType) {
 		this.db.db
 			.prepare('INSERT INTO types (id, file, name, json) VALUES (?, ?, ?, ?)')
-			.run(this.db.id, this.file, name, JSON.stringify(datatype));
+			.run(this.db.id, this.file, name, JSON.stringify(datatype, jsonReplacer));
 	}
 }
