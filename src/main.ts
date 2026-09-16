@@ -7,9 +7,9 @@ import { EvalData } from './database';
 import { SlicingCriterion } from '@eagleoutice/flowr';
 import { DatatypeQuery } from '@eagleoutice/flowr/queries/catalog/datatype-query/datatype-query-format';
 
-if(process.argv.length < 4) {
+if(process.argv.length < 3) {
 	console.error(`
-Usage: \`npm run main <folder> <database> [comment]\`
+Usage: \`npm run main <folder> [database] [comment]\`
 
 For every .R file in \`<folder>\`:
   Flowr will infer types via the \`datatype\` query for all
@@ -27,13 +27,16 @@ For every .R file in \`<folder>\`:
   process.exit(1);
 }
 
+const FOLDER_ARG_INSPECT = "-"; // pass this instead of a folder of R files to get eval data
 const folder = process.argv[2];
 const database = new EvalData(
-	process.argv[3],
-	process.argv[4] || ""
+	process.argv[3] || "",
+	process.argv[4] || "",
+	folder === FOLDER_ARG_INSPECT,
 );
 
 async function main(folder: string) {
+	if (folder === FOLDER_ARG_INSPECT) return await main_inspect();
 	const directory = path.resolve(folder);
 	const flowr = await AbstractFlowr.new(directory);
 	try {
@@ -65,9 +68,20 @@ async function main(folder: string) {
 			}
 			console.log(inferredTypes);
 		}
-	} finally {
+	} catch {
 		database.close();
 		flowr.close();
+	}
+}
+
+async function main_inspect() {
+	const db = database.history();
+	for (const run of db.runs()) {
+		console.log("RUN", run.id);
+		for (const file of run.files()) {
+			console.log("file", file.file);
+			console.log(file.types());
+		}
 	}
 }
 

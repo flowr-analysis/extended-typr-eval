@@ -1,4 +1,6 @@
-x <- ""
-y <- c(0)
-x #type=first#
-y #type=second#
+f <- function() {
+  return 5L;
+}
+f #type=fun#
+x <- f()
+x #type=res#
