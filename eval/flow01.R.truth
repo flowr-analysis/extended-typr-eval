@@ -1,0 +1,3 @@
+x = {"tag":"RTypeUnion","types":{"t":":!set","v":[{"tag":"RDoubleType"},{"tag":"RStringType"}]}}
+num = {"tag":"RDoubleType"}
+str = {"tag":"RStringType"}

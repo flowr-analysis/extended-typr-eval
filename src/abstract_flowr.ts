@@ -32,6 +32,13 @@ export class AbstractFlowr {
 		const resultString = JSON.stringify(results, jsonReplacer, 2);
 		return [results, resultString];
 	}
+	public async queryLiteral(code: string, query: Queries): Promise<[QueryResults, string]> {
+		this.analyzer.addRequest(code);
+		const results = await this.analyzer.query(query);
+		this.analyzer.reset();
+		const resultString = JSON.stringify(results, jsonReplacer, 2);
+		return [results, resultString];
+	}
 	public async close(): Promise<void> {
 		this.analyzer.close();
 	}

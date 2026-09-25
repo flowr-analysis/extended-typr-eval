@@ -1,0 +1,4 @@
+# fun = {"tag":"RFunctionType","parameterTypes":{"t":":!map","v":{}},"returnType":{"tag":"RIntegerType"}}
+# res = {"tag":"RIntegerType"}
+fun = ignore
+res = ignore

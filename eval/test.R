@@ -1,5 +1,5 @@
 f <- function() {
-  return 5L;
+  return 5L
 }
 f #type=fun#
 x <- f()
