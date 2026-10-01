@@ -6,7 +6,7 @@ import { DataType, DataTypeTag } from '@eagleoutice/flowr/typing/types';
 import { EvalData, EvalDataForFile } from './database';
 import { SlicingCriterion } from '@eagleoutice/flowr';
 import { DatatypeQuery } from '@eagleoutice/flowr/queries/catalog/datatype-query/datatype-query-format';
-import { TypeInferenceAccuracyCategory } from './analysis';
+import { TypeAccuracyError, TypeAccuracyErrorKind, TypeInferenceAccuracyCategory } from './analysis';
 import { prettyPrintDataType } from '@eagleoutice/flowr/typing/pretty-print';
 import { jsonReplacer } from './json';
 import readline from 'readline/promises';
@@ -14,7 +14,7 @@ import readline from 'readline/promises';
 /**
 * EXECS_PER_FILE > 1 increases performance measurement accuracy by
 * running the analysis multiple times. EXECS_PER_FILE must be >= 1.
-**/
+*/
 const EXECS_PER_FILE = 3;
 
 if(process.argv.length < 3) {
@@ -113,58 +113,81 @@ async function main(folder: string) {
 async function main_inspect() {
 	const db = database.history();
 	for (const run of db.runs()) {
-		console.log(`\n===== Run #${run.id} =====\n`);
+		console.log(`\n\n===== Run #${run.id} =====\n`);
+		let totalRunErrors = 0;
+		let totalRunScore = 0;
 		for (const file of run.files()) {
 			const an = file.analyse();
 			// const expp = (d?: DataType | null) => d === undefined ? "(undefined)" : (d === null ? "(ignored)" : JSON.stringify(d, jsonReplacer));
 			const pp = (d?: DataType | null) => d === undefined ? "(undefined)" : (d === null ? "(ignored)" : prettyPrintDataType(d));
 			let totalScore = 0;
+			const accuracy = an.typeAccuracy();
+			let accuracyText;
+			if (accuracy instanceof Map) {
+				accuracyText = accuracy.entries().map(([name, accuracy]) => {
+					let desc; const prevScore = totalScore;
+					switch (accuracy.cat) {
+						case TypeInferenceAccuracyCategory.Ignore:
+							return "";
+						case TypeInferenceAccuracyCategory.Equal:
+							totalScore += 5;
+							desc = `inferred the expected type ${pp(accuracy.type)}`;
+							break;
+						case TypeInferenceAccuracyCategory.Supertype:
+							if (accuracy.inferred.tag == DataTypeTag.Intersection && accuracy.inferred.types.size == 0) {
+								totalScore += -1;
+								desc = `inferred top (⊤) instead of the expected type ${pp(accuracy.expected)}`;
+							} else {
+								totalScore += 3;
+								desc = `inferred the supertype ${pp(accuracy.inferred)} of the expected type ${pp(accuracy.expected)}`;
+							}
+							break;
+						case TypeInferenceAccuracyCategory.Subtype:
+							totalScore += -10;
+							desc = `inferred the *subtype* ${pp(accuracy.inferred)} of the expected type ${pp(accuracy.expected)}`;
+							break;
+						case TypeInferenceAccuracyCategory.Unrelated:
+							totalScore += -10;
+							desc = `inferred the *unrelated* ${pp(accuracy.inferred)} instead of the expected type ${pp(accuracy.expected)}`;
+							break;
+						case TypeInferenceAccuracyCategory.NoInferredType:
+							desc = `there was NO inferred type (bug?)`;
+							break;
+						case TypeInferenceAccuracyCategory.NoExpectedType:
+							desc = `there was NO expected type (missing?)`;
+							break;
+					}
+					let scoreDelta: number | string = totalScore-prevScore;
+					if (scoreDelta >= 0) scoreDelta = "+" + scoreDelta;
+					return `\n  ${name} (${scoreDelta}): ${desc}`;
+				}).reduce((a, b) => a + b);
+			} else {
+				accuracyText = "\n  ERROR: ";
+				totalRunErrors += 1;
+				const err: TypeAccuracyError = accuracy;
+				switch (err.kind) {
+					case TypeAccuracyErrorKind.ExpectationFailed:
+						accuracyText += `expected type ${pp(err.expected)}, but inferred ${pp(err.inferred)}`
+						break;
+				}
+			}
 // types:${file.typesWithTruths().entries().map(([name, types]) =>
 // 	`\n- name: ${name}\n  inferred: ${pp(types.inferred)}\n  expected: ${pp(types.expected)}\n  inferred: ${expp(types.inferred)}\n  expected: ${expp(types.expected)}`
 // ).reduce((a, b) => a + b)}
 			console.log(`--- ${file.file} ---
 timings:
   ${Math.round(an.msAverage())} ms (mean), ${Math.round(an.msMedian())} ms (median) - ${an.runs()} runs
-accuracy:${an.typeAccuracy().entries().map(([name, accuracy]) => {
-	let desc; const prevScore = totalScore;
-	switch (accuracy.cat) {
-		case TypeInferenceAccuracyCategory.Ignore:
-			return "";
-		case TypeInferenceAccuracyCategory.Equal:
-			totalScore += 5;
-			desc = `inferred the expected type ${pp(accuracy.type)}`;
-			break;
-		case TypeInferenceAccuracyCategory.Supertype:
-			if (accuracy.inferred.tag == DataTypeTag.Intersection && accuracy.inferred.types.size == 0) {
-				totalScore += -1;
-				desc = `inferred top (⊤) instead of the expected type ${pp(accuracy.expected)}`;
-			} else {
-				totalScore += 3;
-				desc = `inferred the supertype ${pp(accuracy.inferred)} of the expected type ${pp(accuracy.expected)}`;
-			}
-			break;
-		case TypeInferenceAccuracyCategory.Subtype:
-			totalScore += -10;
-			desc = `inferred the *subtype* ${pp(accuracy.inferred)} of the expected type ${pp(accuracy.expected)}`;
-			break;
-		case TypeInferenceAccuracyCategory.Unrelated:
-			totalScore += -10;
-			desc = `inferred the *unrelated* ${pp(accuracy.inferred)} instead of the expected type ${pp(accuracy.expected)}`;
-			break;
-		case TypeInferenceAccuracyCategory.NoInferredType:
-			desc = `there was NO inferred type (bug?)`;
-			break;
-		case TypeInferenceAccuracyCategory.NoExpectedType:
-			desc = `there was NO expected type (missing?)`;
-			break;
-	}
-	let scoreDelta: number | string = totalScore-prevScore;
-	if (scoreDelta >= 0) scoreDelta = "+" + scoreDelta;
-	return `\n  ${name} (${scoreDelta}): ${desc}`;
-}).reduce((a, b) => a + b)}
+accuracy:${accuracyText}
 score:
   ${totalScore}
 `);
+			totalRunScore += totalScore;
+		}
+		if (totalRunErrors > 0) {
+			console.log(`partial score: ${totalRunScore}`);
+			console.log(`WARNING: There were ${totalRunErrors} errors in this run!`);
+		} else {
+			console.log(`final score: ${totalRunScore}`);
 		}
 	}
 }

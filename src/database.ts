@@ -13,7 +13,7 @@ import { DatabaseAnalyser } from './analysis';
 * - meta: maps id to run meta-information, namely the first execution's duration in milliseconds.
 * - metas: stores more meta-information for executions after the first one.
 * - types: maps \[id, file name, type name] to a json string containing type information.
-**/
+*/
 export class EvalData {
 	db: Database.Database;
 	id: BigInt | null;
@@ -57,7 +57,7 @@ export class EvalDataForFile {
 
 	/** Adds an initial metadata, creating
 	* a `meta` entry for the current run+file combination.
-	**/
+	*/
 	constructor(db: EvalData, file: string, meta: { ms: number }) {
 		this.db = db;
 		this.file = file;
@@ -69,7 +69,7 @@ export class EvalDataForFile {
 	/**
 	* Adds an additional metadata, for a second/third/... execution of
 	* the same analysis. Useful mostly for performance measurements.
-	**/
+	*/
 	addMeta(meta: { ms: number }) {
 		this.db.db
 			.prepare('INSERT INTO metas (id, file, ms) VALUES (?, ?, ?)')
@@ -78,7 +78,7 @@ export class EvalDataForFile {
 
 	/**
 	* Sets the type `name` to `datatype` for this run and this file.
-	**/
+	*/
 	insertType(name: string, datatype: DataType) {
 		this.db.db
 			.prepare('INSERT INTO types (id, file, name, json) VALUES (?, ?, ?, ?)')
@@ -86,7 +86,7 @@ export class EvalDataForFile {
 	}
 	/**
 	* Sets the ground truth for type `name` to `datatype` for this run and this file.
-	**/
+	*/
 	insertTruthJson(name: string, datatypeJson: string) {
 		this.db.db
 			.prepare('INSERT INTO truths (id, file, name, json) VALUES (?, ?, ?, ?)')
@@ -151,6 +151,10 @@ export class EvalDataHistoryRun {
 	}
 }
 
+export enum SpecialTruth {
+	Expect,
+}
+
 export class EvalDataHistoryFileInRun {
 	db: EvalData;
 	id: bigint;
@@ -183,16 +187,21 @@ export class EvalDataHistoryFileInRun {
 			return [];
 		}));
 	}
-	/** returns `null` instead of a `DataType` when the value in the database is `ignore`. **/
-	truths(): Map<string, DataType | null> {
+	/** returns `null` instead of a `DataType` when the value in the database is `ignore`. */
+	truths(): Map<string, DataType | null | [SpecialTruth, DataType]> {
 		return new Map(this.db.db.prepare(`SELECT name, json FROM truths WHERE id = ? AND file = ?`).all(this.id, this.file).flatMap(row => {
 			if (row instanceof Object && 'name' in row && 'json' in row && typeof row['json'] == 'string') {
 				const name = row['name'];
 				const json = row['json'];
 				try {
-					let value: DataType | null = null;
-					if (json !== "ignore")
+					let value: DataType | null | [SpecialTruth, DataType];
+					if (json === "ignore") {
+						value = null;
+					} else if (json.startsWith("expect ")) {
+						value = [SpecialTruth.Expect, JSON.parse(json.substring(7), jsonReviver)];
+					} else {
 						value = JSON.parse(json, jsonReviver);
+					}
 					if (typeof name == 'string') {
 						return [[name, value]];
 					}
@@ -209,10 +218,10 @@ export class EvalDataHistoryFileInRun {
 	*
 	* Other behaviors (name must be present in `types()`, in `truths()`, or in both)
 	* can be achieved by looping over `types()` or `truths()`.
-	**/
-	typesWithTruths(): Map<string, { inferred?: DataType, expected?: DataType | null }> {
+	*/
+	typesWithTruths(): Map<string, { inferred?: DataType, expected?: DataType | null | [SpecialTruth, DataType] }> {
 		const truths = this.truths();
-		const both: Map<string, { inferred?: DataType, expected?: DataType | null }> = new Map();
+		const both: Map<string, { inferred?: DataType, expected?: DataType | null | [SpecialTruth, DataType] }> = new Map();
 		for (const [n, inferred] of this.types()) {
 			both.set(n, { inferred: inferred, expected: truths.get(n) });
 		}
@@ -230,14 +239,14 @@ export class EvalDataHistoryFileInRun {
 	* this this value is always a real measurement and guaranteed to exist.
 	*
 	* Measurements from additional executions can be retrieved with `msOther()`.
-	**/
+	*/
 	msFirst(): number {
 		return this.ms;
 	}
 	/**
 	* Returns the durations, in milliseconds, of the eval execution for this run and this file, *skipping* the measurement returned by `msFirst()`.
 	* The returned array may be empty. To include the `msFirst()` value, use `msAll()`.
-	**/
+	*/
 	msOther(): number[] {
 		const ms = [];
 		for (const row of this.db.db.prepare("SELECT ms FROM metas WHERE id = ? AND file = ?").all(this.id, this.file)) {
@@ -250,7 +259,7 @@ export class EvalDataHistoryFileInRun {
 	/**
 	* Returns the durations, in milliseconds, of the eval execution for this run and this file, *including* the measurement returned by `msFirst()`.
 	* The returned array is never empty. To exclude the `msFirst()` value, use `msOther()`.
-	**/
+	*/
 	msAll(): number[] {
 		const ms = [this.ms];
 		for (const row of this.db.db.prepare("SELECT ms FROM metas WHERE id = ? AND file = ?").all(this.id, this.file)) {
