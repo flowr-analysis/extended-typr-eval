@@ -1,0 +1,6 @@
+int1 = {"tag":"RIntegerType"}
+int2 = {"tag":"RIntegerType"}
+int3 = {"tag":"RIntegerType"}
+int4 = {"tag":"RIntegerType"}
+int5 = {"tag":"RIntegerType"}
+str = {"tag":"RStringType"}

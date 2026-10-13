@@ -1,0 +1,3 @@
+num = expect {"tag":"RDoubleType"}
+pre = {"tag":"RAtomicVectorType","elementType":{"tag":"RDoubleType"}}
+vec = {"tag":"RAtomicVectorType","elementType":{"tag":"RDoubleType"}}

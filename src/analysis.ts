@@ -27,7 +27,7 @@ export type TypeInferenceAccuracyMeasure = { cat: TypeInferenceAccuracyCategory.
   | { cat: TypeInferenceAccuracyCategory.Subtype, inferred: DataType, expected: DataType, missing: DataType }
   | { cat: TypeInferenceAccuracyCategory.Unrelated, inferred: DataType, expected: DataType }
   | { cat: TypeInferenceAccuracyCategory.NoInferredType }
-  | { cat: TypeInferenceAccuracyCategory.NoExpectedType };
+  | { cat: TypeInferenceAccuracyCategory.NoExpectedType, inferred: DataType };
 
 export enum TypeAccuracyErrorKind {
   ExpectationFailed,
@@ -89,7 +89,7 @@ export class DatabaseAnalyser {
     } else if (inferred === undefined) {
       return { cat: TypeInferenceAccuracyCategory.NoInferredType };
     } else if (expected === undefined) {
-      return { cat: TypeInferenceAccuracyCategory.NoExpectedType};
+        return { cat: TypeInferenceAccuracyCategory.NoExpectedType, inferred };
     } else {
       let special = null;
       if (expected instanceof Array) {

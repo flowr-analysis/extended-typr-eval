@@ -104,7 +104,8 @@ async function main(folder: string) {
 				}
 			}
 		}
-	} catch {
+	} catch (e) {
+		console.log(e);
 		database.close();
 		flowr.close();
 	}
@@ -154,7 +155,7 @@ async function main_inspect() {
 							desc = `there was NO inferred type (bug?)`;
 							break;
 						case TypeInferenceAccuracyCategory.NoExpectedType:
-							desc = `there was NO expected type (missing?)`;
+							desc = `there was NO expected type (missing?), but ${pp(accuracy.inferred)} was inferred`;
 							break;
 					}
 					let scoreDelta: number | string = totalScore-prevScore;
