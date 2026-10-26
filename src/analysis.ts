@@ -1,5 +1,5 @@
 import { EvalDataHistoryFileInRun, SpecialTruth } from "./database";
-import { DataType } from "@eagleoutice/flowr/typing/types";
+import { DataType, RTypeIntersection } from "@eagleoutice/flowr/typing/types";
 import { combine, subsumes } from "@eagleoutice/flowr/typing/subtyping/types";
 
 export enum TypeInferenceAccuracyCategory {
@@ -12,6 +12,8 @@ export enum TypeInferenceAccuracyCategory {
   Equal,
   /** The inferred type is a supertype of the ground truth type. The type inference system, in this case, was sound but not accurate. */
   Supertype,
+  /** The inferred type is top (any). The type inference system, in this case, was sound but very inaccurate. */
+  TopType,
   /** The inferred type is a subtype of the ground truth type. The type inference system, in this case, was accurate but not sound. */
   Subtype,
   /** The inferred type is not a sub- or supertype of the ground truth type. The type system was not accurate and not sound. */
@@ -24,6 +26,7 @@ export enum TypeInferenceAccuracyCategory {
 export type TypeInferenceAccuracyMeasure = { cat: TypeInferenceAccuracyCategory.Ignore }
   | { cat: TypeInferenceAccuracyCategory.Equal, type: DataType }
   | { cat: TypeInferenceAccuracyCategory.Supertype, inferred: DataType, expected: DataType, unused: DataType }
+  | { cat: TypeInferenceAccuracyCategory.TopType, inferred: DataType, expected: DataType }
   | { cat: TypeInferenceAccuracyCategory.Subtype, inferred: DataType, expected: DataType, missing: DataType }
   | { cat: TypeInferenceAccuracyCategory.Unrelated, inferred: DataType, expected: DataType }
   | { cat: TypeInferenceAccuracyCategory.NoInferredType }
@@ -110,8 +113,12 @@ export class DatabaseAnalyser {
       if (subtype && supertype) {
         return { cat: TypeInferenceAccuracyCategory.Equal, type: inferred };
       } else if (supertype) {
-        // TODO: verify that `combine()` makes sense here
-        return { cat: TypeInferenceAccuracyCategory.Supertype, inferred, expected, unused: combine(expected, inferred) };
+        if (subsumes(new RTypeIntersection(), inferred)) {
+          return { cat: TypeInferenceAccuracyCategory.TopType, inferred, expected };
+        } else {
+          // TODO: verify that `combine()` makes sense here
+          return { cat: TypeInferenceAccuracyCategory.Supertype, inferred, expected, unused: combine(expected, inferred) };
+        }
       } else if (subtype) {
         // TODO: verify that `combine()` makes sense here
         return { cat: TypeInferenceAccuracyCategory.Subtype, inferred, expected, missing: combine(inferred, expected) };
