@@ -2,11 +2,12 @@ import fs from 'fs/promises';
 
 import { subsumes } from "@eagleoutice/flowr/typing/subtyping/types";
 import { DataType } from "@eagleoutice/flowr/typing/types";
-import { TypeAccuracyError, TypeAccuracyErrorKind, TypeInferenceAccuracyCategory } from "./analysis";
-import { EvalData } from "./database";
+import { DatabaseAnalyser, TypeAccuracyError, TypeAccuracyErrorKind, TypeInferenceAccuracyCategory } from "./analysis";
+import { EvalData, EvalDataHistory, EvalDataHistoryRun } from "./database";
 import { prettyPrintDataType } from "@eagleoutice/flowr/typing/pretty-print";
-import { arg_comment } from "./main";
 import { jsonReviver } from './json';
+
+const VARNAME_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
 
 export class EvalRatingVector {
 	public equal: number;
@@ -50,9 +51,18 @@ export class EvalRatingVector {
 	}
 }
 
-export async function main_inspect(database: EvalData) {
+export async function main_evaluate(database: EvalData, filter: string, evalConfig: object | null = null): Promise<undefined | Map<string, { errors: number, score: number, files: Map<string, { errors: number, score: number, analysis: DatabaseAnalyser }> }>> {
+	let globalFilters = [];
+	const filters = [];
+	for (const f of filter.split(" ")) {
+		globalFilters.push(f);
+		if (f.startsWith("#")) {
+			filters.push(globalFilters);
+			globalFilters = [];
+		}
+	}
 	const db = database.history();
-	const config = JSON.parse((await fs.readFile(arg_comment || "eval.json", { encoding: 'utf-8' })).trim());
+	const config = evalConfig || JSON.parse((await fs.readFile("eval.json", { encoding: 'utf-8' })).trim());
 	for (const v of [config.equal, config.supertype, config.toptype, config.unsound]) {
 	  if (!(typeof v == "number")) {
 	    console.log("CONFIG ERROR: fields `equal, supertype, toptype, unsound` must be numeric");
@@ -76,11 +86,18 @@ export async function main_inspect(database: EvalData) {
       return;
     }
   }
+  let runIndex = -1;
+  let runsLeft = db.runs().length;
+  const outRuns = new Map();
 	for (const run of db.runs()) {
+		runIndex += 1; runsLeft -= 1;
+		if (await filterRun(db, run, runIndex, runsLeft, filters, globalFilters) === false) continue;
 		console.log(`\n\n===== Run #${run.id} =====\n`);
+		const outFiles = new Map();
 		let totalRunErrors = 0;
 		let totalRunScore = 0;
 		for (const file of run.files()) {
+			const prevRunErrors = totalRunErrors;
 			const an = file.analyse();
 			// const expp = (d?: DataType | null) => d === undefined ? "(undefined)" : (d === null ? "(ignored)" : JSON.stringify(d, jsonReplacer));
 			const pp = (d?: DataType | null) => d === undefined ? "(undefined)" : (d === null ? "(ignored)" : prettyPrintDataType(d));
@@ -139,6 +156,7 @@ export async function main_inspect(database: EvalData) {
 // types:${file.typesWithTruths().entries().map(([name, types]) =>
 // 	`\n- name: ${name}\n  inferred: ${pp(types.inferred)}\n  expected: ${pp(types.expected)}\n  inferred: ${expp(types.inferred)}\n  expected: ${expp(types.expected)}`
 // ).reduce((a, b) => a + b)}
+			outFiles.set(file.file, { errors: totalRunErrors - prevRunErrors, score: totalScore, analyser: an });
 			console.log(`--- ${file.file} ---
 timings:
   ${Math.round(an.msAverage())} ms (mean), ${Math.round(an.msMedian())} ms (median) - ${an.runs()} runs
@@ -148,6 +166,7 @@ score:
 `);
 			totalRunScore += totalScore;
 		}
+		outRuns.set(run.id, { errors: totalRunErrors, score: totalRunScore, files: outFiles });
 		if (totalRunErrors > 0) {
 			console.log(`partial score: ${totalRunScore}`);
 			console.log(`WARNING: There were ${totalRunErrors} errors in this run!`);
@@ -155,4 +174,53 @@ score:
 			console.log(`final score: ${totalRunScore}`);
 		}
 	}
+	return outRuns;
+}
+
+async function filterRun(db: EvalDataHistory, run: EvalDataHistoryRun, runIndex: number, runsLeft: number, filters: string[][], globalFilters: string[]) {
+	let runMatchesFilters: boolean | null = null;
+	for (const f of globalFilters) {
+		switch (f) {
+			case "last": {
+				const matches = runsLeft == 0;
+				runMatchesFilters = runMatchesFilters || matches;
+				break;
+			}
+		}
+	}
+	for (const filter of filters) {
+		let f = filter[filter.length-1];
+		if (f.startsWith("#")) {
+			if (/^#[0-9]+$/.test(f)) {
+				const matches = BigInt(f.slice(1)) === run.id;
+				runMatchesFilters = runMatchesFilters || matches;
+			} else if (f.length > 1) {
+				let matches = false;
+				if (run.comment !== null) {
+					let i = 0;
+					while (true) {
+						i = run.comment.indexOf(f, i);
+						if (i < 0) break;
+						i += f.length;
+						if (i == run.comment.length || !VARNAME_ALPHABET.includes(run.comment.charAt(i))) {
+							matches = true;
+							break;
+						}
+					}
+				}
+				if (matches === true && filter.includes("last")) {
+					let i = 0;
+					for (const run of db.runs().slice(runIndex+1)) {
+						i += 1;
+						if (await filterRun(db, run, runIndex+i,runsLeft-i, [filter], []) === true) {
+							matches = false;
+							break;
+						}
+					}
+				}
+				runMatchesFilters = runMatchesFilters || matches;
+			}
+		}
+	}
+	return runMatchesFilters;
 }

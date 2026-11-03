@@ -36,12 +36,42 @@ The following arguments can be passed:
 If `<folder>` begins with a dash (`-`), special modes are used
 instead of the program's normal behavior:
 
-- `-e <database>` reads data for all runs from the database,
-  runs the evaluation and prints the data and eval results.
-- `-t` reads an R script from stdin, then outputs the JSON representation
-  of the type of value produced by the last line, e.g. `0L` causes
-  this mode to output `{"tag":"RIntegerType"}`.
-  This JSON can be stored in the database's `truths` table as the expected value.
+### Type-Infer Mode (`-t`)
+
+Takes no additional arguments, just `-t`.
+Reads an R script from stdin, then outputs the JSON representation
+of the type of value produced by the last line, e.g. `0L` causes
+this mode to output `{"tag":"RIntegerType"}`.
+This JSON can be stored in the database's `truths` table as the expected value.
+
+### Eval Mode (`-e`)
+
+Called with `-e <database> [filter]`, this mode reads data for
+all runs from the database, runs the evaluation based on the
+content of `eval.json` and prints the data and eval results.
+
+The optional `[filter]` is a space-separated list of keywords and filters.
+Keywords start with the letters a-z or A-Z, filters start with a symbol.
+Keywords always apply to the next filter. At the end of `[filter]`, keywords
+apply to the general evaluation as opposed to a specific filter.
+
+- To only print results of the nth analysis run,
+  you can use the `#<n>` filter, where `<n>` is an integer `>= 0`.
+- To only print results from the last analysis run,
+  you can use the `last` keyword after the last filter.
+- To only print results from analysis runs whose comments have a certain tag,
+  you can use the `#<tag>` filter where `<tag>` is a nonempty consisting of `a-zA-Z0-9_`
+  and containing at least one non-numeric symbol. The filter matches if the analysis run's
+  comment includes `#<tag>` not followed by one of `a-zA-Z0-9_` (basically word-matching).
+- For example, an interesting filter may be `last #typeR1 last #typeR2` to compare the
+  final version of `typeR1` with the final (or most recent) version of `typeR2`,
+  assuming the `#typeR1` and `#typeR2` tags were used in the comments of the analysis runs.
+
+### Graph Mode (`-g`)
+
+Called with `-g <database> [filter]`, like `-e`.
+This mode runs the equivalent `-e` eval at least once,
+using `graphs.json` as its config file and ignoring `eval.json`.
 
 ## Example
 

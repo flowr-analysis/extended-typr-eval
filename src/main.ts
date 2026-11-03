@@ -9,7 +9,8 @@ import { DatatypeQuery } from '@eagleoutice/flowr/queries/catalog/datatype-query
 import { prettyPrintDataType } from '@eagleoutice/flowr/typing/pretty-print';
 import { jsonReplacer } from './json';
 import readline from 'readline/promises';
-import { main_inspect } from './eval';
+import { main_evaluate } from './eval';
+import { main_graphs } from './graph';
 
 /**
 * EXECS_PER_FILE > 1 increases performance measurement accuracy by
@@ -19,8 +20,9 @@ const EXECS_PER_FILE = 3;
 
 if(process.argv.length < 3) {
 	console.error(`
-Usage: \`npm run main -- <folder> [database] [comment]\`
-       \`npm run main -- -e <database>\` (run eval on database, calculates scores etc.)
+Usage: \`npm run main -- <folder> [database] [comment]\` (run analysis; see README for detailed usage)
+       \`npm run main -- -e <database> [filter]\` (run eval on database using eval.json, calculates scores etc.)
+       \`npm run main -- -g <database> [filter]\` (tex graphs derived from \`-e\` using graphs.json)
        \`npm run main -- -t\` (turn stdin R script into a JSON type representation)
 
 For every .R file in \`<folder>\`:
@@ -40,27 +42,22 @@ For every .R file in \`<folder>\`:
 }
 
 const FOLDER_ARG_INSPECT = "-e"; // pass this instead of a folder of R files to get eval data
+const FOLDER_ARG_GRAPHS = "-g"; // pass this instead of a folder of R files to get eval data
 const FOLDER_ARG_GENTYPE = "-t"; // pass this instead of a folder of R files to jsonify an inferred type
 const argv = process.argv;
 export const arg_folder = process.argv[2];
 export const arg_path = process.argv[3];
 export const arg_comment = process.argv[4];
-for (let i = 3; i < argv.length; i++) {
-	if (argv[i].startsWith("-")) {
-		switch (argv[i]) {
-			case "--scores":
-				break;
-		}
-	}
-}
+export const arg_readonly = arg_folder.startsWith("-");
 const database = new EvalData(
 	arg_path || "",
-	arg_comment || "",
-	arg_folder.startsWith("-"),
+	arg_readonly ? "" : arg_comment || "",
+	arg_readonly,
 );
 
 async function main(folder: string) {
-	if (folder === FOLDER_ARG_INSPECT) return await main_inspect(database);
+	if (folder === FOLDER_ARG_INSPECT) return await main_evaluate(database, arg_comment || "");
+	if (folder === FOLDER_ARG_GRAPHS) return await main_graphs(database, arg_comment || "");
 	if (folder === FOLDER_ARG_GENTYPE) return await main_gentype();
 	if (folder.startsWith("-")) return;
 	const directory = path.resolve(folder);
