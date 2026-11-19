@@ -1,18 +1,18 @@
-import { EvalDataHistory } from "./database";
-
 /**
  * Creates a bar plot from x- and y-labels and data points.
  * For each `x`, one column is created, consisting of `data[x]`, with height `sum(data[x])`.
  * The value `data[x][y]` belongs to the labels `x[x]` and `y[y]` and is a block of a bar.
  */
-export function pgfplot_blockbars(x: string[], y: string[], data: number[][]): string {
+export function pgfplot_blockbars(x: string[], y: string[], data: number[][], options?: { colors: string[] }): string {
   // adapted from: https://pgfplots.net/market-by-sector/, CC BY-SA 4.0, by user Eya Tellili
   // FIXME: CC BY-SA 4.0 requires Share-Alike, so at least `plots.ts` must be licensed
   // as CC BY-SA 4.0 (or GPLv3...). TODO: find out how to do this properly, and do it; probably
   // licensing (parts of) this project as CC BY-SA 4.0 and adding a disclaimer to the README.md and thesis?
   let plots = "";
   for (let j = 0; j < y.length; j++) {
-    plots += "\n    \\addplot coordinates {";
+    let opts = "";
+    if (options?.colors?.[j]) opts += ",fill=" + options?.colors?.[j];
+    plots += "\n    \\addplot" + (opts.length > 1 ? (" ["+opts.substring(1)+"]") : "") + " coordinates {";
     for (let i = 0; i < x.length; i++) {
       let point = data[i][j];
       plots += ` (${x[i]},${point})`;
@@ -46,7 +46,7 @@ export function pgfplot_blockbars(x: string[], y: string[], data: number[][]): s
     symbolic x coords = { ${x.map(l => l.replaceAll(", ", " ").replaceAll(",", " ")).join(", ")} },
     xtick = data,
     xticklabel style = {rotate = 45, anchor = east, yshift = -5pt},
-    ymin = 0, ymax = ${Math.ceil(1+data.flatMap(col => col).reduce((a, n) => a + n))},
+    ymin = 0, ymax = ${Math.ceil(1+Math.max(...data.map(col => col.reduce((a, n) => a + n))))},
     legend style = {
       at = {(0.5, -0.2)}, 
       anchor = north, 

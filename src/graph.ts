@@ -70,6 +70,7 @@ export async function main_graphs(database: EvalData, filter: string) {
     },
   ];
   let y = ["Accurate Types", "Supertypes", "Top Types", "Incorrect Types"];
+  let ycolors = ["green", "blue", "yellow", "red"];
   const files = await evals_last_run_by_file(configs, database, filter);
   console.log(files);
   if (files === undefined) return;
@@ -79,5 +80,7 @@ export async function main_graphs(database: EvalData, filter: string) {
     if (r === undefined) exit(1);
     return r.map(r => r.errors === 0 ? r.score : -r.errors);
   });
-  console.log(pgfplot_blockbars(x, y, data));
+  console.log(pgfplot_blockbars(x, y, data, {
+    colors: ycolors,
+  }));
 }

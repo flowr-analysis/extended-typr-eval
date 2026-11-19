@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 
 # typeR0-eval: 9ac04377fa73c734dc30cfb43879f062b086bfc0 (typeR0 with newer `subsumes`)
-# typeR0: 709e2e1dfaec199b4eba4ae9f5a75590056345b3
+# typeR0: 04180666450fadc1d2f2510c7cfa6673ee3478a3
 
 if echo "$1" | grep -E '\.tgz$'; then
   echo "Importing pre-vendored .tgz"
 
-  npm i "$1"
+  if echo "$1" | grep -E '^/'; then
+    npm i "$1"
+  else
+    npm i "./$1"
+  fi
   npm i
 
   echo "import complete => npm run main [...]"

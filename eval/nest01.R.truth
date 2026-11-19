@@ -1,0 +1,4 @@
+parsed = {"tag":"RTypeUnion","types":{"t":":!set","v":[{"tag":"RStringType"},{"tag":"RDoubleType"}]}}
+double = {"tag":"RDoubleType"}
+obviousdouble = {"tag":"RDoubleType"}
+bottom = {"tag":"RTypeUnion","types":{"t":":!set","v":[]}}
